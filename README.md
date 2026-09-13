@@ -2,7 +2,7 @@
 
 A custom operating system written in x86 assembly (FASM) and freestanding C, built around Intel's 32-bit IA-32 architecture.
 
-**The goal of this OS is to make extensive use of Intel's 32-bit hardware in the operating system itself: TSS structures, hardware task switching, per-process LDTs, virtual-8086 mode, paging, call gates, and all four privilege rings.** These mechanisms shape how processes run, how drivers are entered, and how memory and privilege transitions are managed.
+**The goal of this OS is to make extensive use of Intel's 32-bit hardware in the operating system itself: TSS structures, hardware task switching, per-process LDTs, virtual-8086 mode, paging, call gates, and all four privilege rings.** The OS is currently aiming for low-end, 1GB RAM memory systems. Each process is allocated with 10MiB of RAM private address space, so a total of 100 processes running possible.
 
 ## Intel IA-32 features at the heart of the OS
 
