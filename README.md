@@ -1,4 +1,4 @@
-# 32-bit Custom Operating System for x86
+# Custom made OS for x86
 
 A custom operating system written in x86 assembly (FASM) and freestanding C, built around Intel's 32-bit IA-32 architecture.
 
@@ -84,4 +84,4 @@ The builder assembles the interrupt image, builds the C/assembly kernel and driv
 
 These check parsers, driver logic, mocked I/O, payload layout, and embedded interfaces. They do not replace booting the OS to exercise actual hardware task switches, privilege transitions, and device behavior.
 
-Repository: [TheodorosBalis/32-bit-Custom-Operating-System-for-x86](https://github.com/TheodorosBalis/32-bit-Custom-Operating-System-for-x86).
+Repository: [TheodorosBalis/Custom-made-OS-for-x86](https://github.com/TheodorosBalis/Custom-made-OS-for-x86).
