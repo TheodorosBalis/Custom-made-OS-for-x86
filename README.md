@@ -50,38 +50,81 @@ Development/
     Storage/         Runtime read-only block service
     Usb/             UHCI host, USB mouse, ring-2 mouse service
     Vga/             VGA text output
-docs/
-  architecture/      OS block diagram and E820 memory-layout document
-  hardware/          Board and chipset reference documents
-  history/           Earlier build/USB commands, address notes, and map
-examples/legacy/     Earlier assembly helpers grouped by subject
-tests/              Host-side tests grouped by component
-tools/              USB image writer and E820 PDF generator
-build-image.bat      Complete image build and optional local deployment workflow
-build-kernel-c.ps1   C payloads, driver/user images, and high-half kernel build
-build-bootstrap.ps1 Bootstrap manifest, native loader, and boot-sector build
+build.ps1            Complete source-to-image build
+build-kernel-c.ps1   C payloads, driver/user images, and high-half kernel
+build-bootstrap.ps1 Bootstrap manifest, native loader, and boot sector
+build-tools.ps1     Tool discovery and shared boot-layout validation
 ```
 
-`Development` contains the active OS. The assembly helpers in `examples/legacy` are historical reference material and are not part of the current build. See the [documentation index](docs/README.md) for reference notes.
+`Development` contains the active OS and component documentation. The four build scripts above are included in the repository. Historical prebuilt component files are also present, but the build regenerates every required object, executable payload, and boot manifest from source. New build outputs are covered by `.gitignore`; files already tracked by Git remain tracked.
 
-Generated objects, ELF files, and component binaries are currently written beside their sources; the final image is `myos.img` at the project root. `.gitignore` excludes those outputs, test executables, local caches, and scratch files from source control.
+## Build from a fresh clone (Windows)
 
-## Build on Windows
+The supported build host is 64-bit Windows with PowerShell 5.1 or later. The output is a **32-bit x86 raw boot disk image**, not a Windows executable. Everything specific to this OS is in the repository; install the external compiler and assembler below once.
 
-Requirements: PowerShell, FASM 1.x, and LLVM with `clang`, `ld.lld`, and `llvm-objcopy`. The current C target is `i386-unknown-none-elf` with `-march=pentium-m`. The scripts default to LLVM bundled with Visual Studio 2022 Community and the original local FASM installation; set `LLVM_BIN` and `FASM` for your installation.
+### 1. Install the tools
 
-From the project root, build the image without writing a physical drive or changing a VM:
+- **Git:** install [Git for Windows](https://git-scm.com/downloads/win) to clone the repository.
+- **FASM 1.x:** download the Windows package from [flatassembler.net](https://flatassembler.net/download.php) and extract it, for example to `C:\Tools\fasm`. Use `FASM.EXE`, not the GUI editor or the separate fasmg assembler.
+- **LLVM:** install a Windows x64 distribution containing **`clang.exe`, `ld.lld.exe`, and `llvm-objcopy.exe`**. The [LLVM 19.1.5 release](https://github.com/llvm/llvm-project/releases/tag/llvmorg-19.1.5) is the tested compiler version. Point the build at the directory containing all three programs, commonly `C:\Program Files\LLVM\bin`. A Clang-only installation is insufficient.
+
+The source-only build was verified with **FASM 1.73.32 and LLVM/LLD 19.1.5**. Other versions have not been verified. Visual Studio is optional if your LLVM installation already supplies those three tools; the build does not require MSVC libraries, the Windows SDK, Python, NASM, GCC, or a separately installed .NET SDK.
+
+### 2. Clone and compile
+
+Open PowerShell and run:
 
 ```powershell
-$env:FASM = 'C:\path\to\fasm\FASM.EXE'
-$env:LLVM_BIN = 'C:\path\to\llvm\bin'
-$env:SKIP_USB_FLASH = '1'
-$env:SKIP_VM_LAUNCH = '1'
-.\build-image.bat
+git clone https://github.com/TheodorosBalis/Custom-made-OS-for-x86.git
+cd Custom-made-OS-for-x86
+
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build.ps1 `
+    -FasmPath 'C:\Tools\fasm\FASM.EXE' `
+    -LlvmBin 'C:\Program Files\LLVM\bin'
 ```
 
-The builder assembles the interrupt image, builds the C/assembly kernel and driver payloads, generates their CRC manifest, builds the bootstrap, and packs the 2 MiB raw disk image. The fixed physical load addresses require RAM covering the payload region at `0x34000000`; use at least 1 GiB RAM for the existing VM setup.
+Replace the two tool paths with your installation paths. `-FasmPath` names the executable; `-LlvmBin` names the directory containing the LLVM executables. The execution-policy option applies only to this PowerShell process.
 
-These check parsers, driver logic, mocked I/O, payload layout, and embedded interfaces. They do not replace booting the OS to exercise actual hardware task switches, privilege transitions, and device behavior.
+Alternatively, if all four executables are on `PATH`:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
+```
+
+The scripts also accept the `FASM` and `LLVM_BIN` environment variables. Explicit parameters take precedence. No developer-specific installation path is assumed.
+
+### 3. Find and check the result
+
+A successful build ends with `Created: ...\myos.img (2097152 bytes)`. The image is written to the cloned repository's root:
+
+```powershell
+(Get-Item .\myos.img).Length  # Expected: 2097152 (2 MiB)
+```
+
+`build.ps1` only builds files in the checkout. It does not write a USB drive, request administrator access, start a VM, or alter an existing VM disk. Re-run the same command after source changes; every component is rebuilt, including any prebuilt files shipped in the repository.
+
+The scripts assemble interrupt handlers; compile and link the freestanding C kernel, drivers and desktop; assemble the high-half kernel; generate the payload CRC32 manifest; build the native bootstrap; then pack and validate the final image. The C compiler targets `i386-unknown-none-elf` with `-march=pentium-m` and no host C library.
+
+| Image region | Starting LBA | Reserved sectors (512 bytes each) |
+| --- | ---: | ---: |
+| Boot sector | 0 | 1 |
+| Bootstrap and native storage loader | 1 | 64 |
+| High-half kernel and embedded driver/user images | 65 | 256 |
+| Interrupt handlers | 321 | 2049 |
+| Remaining space | 2370 | 1726 |
+
+[BootLayout.inc](Development/Boot/BootLayout.inc) defines the layout. The build checks component sizes and the boot signature; the bootstrap checks the padded payload CRCs when booting.
+
+### Booting the image
+
+Compilation does not require an emulator. To run the result, use a legacy BIOS x86 VM with **one CPU, at least 1 GiB RAM, and an IDE-attached disk**; the documented loader supports compatibility-mode ATA. `myos.img` is a raw disk image, not an ISO: import or convert it as a hard disk with your emulator's tooling. The fixed physical payload addresses reach `0x34000000`, so smaller RAM configurations are unsuitable for this layout.
+
+Intel915 graphics are hardware-specific. The graphical desktop is skipped when that GPU is absent, including with VirtualBox's standard graphics adapter. A successful build validates compilation and image layout; it does not verify hardware task switching or device behavior in a running VM.
+
+### Troubleshooting
+
+- **Required build tool was not found:** check the exact executable/directory paths above. The script stops before compilation if any tool is missing.
+- **`ld.lld.exe` or `llvm-objcopy.exe` is missing:** install the complete LLVM tool distribution, or point `-LlvmBin` at an existing LLVM directory that contains both. `lld-link.exe` is not a substitute for the ELF linker used here.
+- **Linker overflow or FASM reports an invalid value:** the OS has fixed image reservations and linker addresses. Use the tested tool versions and inspect the first build error; changing only the final image size does not fix a payload that exceeds its reserved region.
 
 Repository: [TheodorosBalis/Custom-made-OS-for-x86](https://github.com/TheodorosBalis/Custom-made-OS-for-x86).

@@ -1,0 +1,29 @@
+# OS and native-test build products
+*.o
+*.elf
+*.bin
+*.fas
+*.exe
+*.dll
+*.pdb
+*.img
+*.vdi
+Development/Boot/BootManifest.inc
+
+# .NET tool outputs and machine-local caches
+**/bin/
+**/obj/
+**/NuGet/
+.dotnet-home/
+
+# Scratch work, local configuration, and editor state
+tmp/
+.vs/
+.vscode/
+.idea/
+.codex/
+.agents/
+.env
+.env.*
+Thumbs.db
+Desktop.ini
