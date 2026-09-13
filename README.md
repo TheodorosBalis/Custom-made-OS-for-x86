@@ -82,22 +82,6 @@ $env:SKIP_VM_LAUNCH = '1'
 
 The builder assembles the interrupt image, builds the C/assembly kernel and driver payloads, generates their CRC manifest, builds the bootstrap, and packs the 2 MiB raw disk image. The fixed physical load addresses require RAM covering the payload region at `0x34000000`; use at least 1 GiB RAM for the existing VM setup.
 
-**The existing batch workflow also supports raw USB writing and replacing the configured VirtualBox disk.** Keep the two skip flags set for an image-only build. Before enabling deployment, review its drive number, drive letter, VM name, and VDI path. USB writing overwrites the selected drive and requires administrator rights and the .NET 9 USB writer; VM deployment requires VirtualBox.
-
-## Tests
-
-After building the image, run the component tests from the project root:
-
-```powershell
-.\tests\Keyboard\test-keyboard.ps1
-.\tests\Boot\test-boot-storage.ps1
-.\tests\Storage\test-storage.ps1
-.\tests\Usb\test-usb-host.ps1
-.\tests\Intel915\test-intel915.ps1
-.\tests\Audio\test-azalia.ps1
-& $env:FASM tests\Desktop\KernelLayoutTests.asm tests\Desktop\KernelLayoutTests.bin
-```
-
 These check parsers, driver logic, mocked I/O, payload layout, and embedded interfaces. They do not replace booting the OS to exercise actual hardware task switches, privilege transitions, and device behavior.
 
 Repository: [TheodorosBalis/32-bit-Custom-Operating-System-for-x86](https://github.com/TheodorosBalis/32-bit-Custom-Operating-System-for-x86).
